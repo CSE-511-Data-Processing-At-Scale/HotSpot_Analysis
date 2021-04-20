@@ -43,16 +43,19 @@ def runHotcellAnalysis(spark: SparkSession, pointPath: String): DataFrame =
   val maxZ = 31
   val numCells = (maxX - minX + 1)*(maxY - minY + 1)*(maxZ - minZ + 1)
 
-  // YOU NEED TO CHANGE THIS PART
-
+  
+  // Filter for the given rectangle and the count the pickups for each unit cube.
   val filtered = pickupInfo.filter(pickupInfo("x") >= minX && pickupInfo("x") <= maxX &&
                                    pickupInfo("y") >= minY && pickupInfo("y") <= maxY &&
                                    pickupInfo("z") >= minZ && pickupInfo("z") <= maxZ).groupBy("x","y","z").count()
 
   filtered.show()
 
+  // Get the list of count of all the cubes.
   val listValues = filtered.select("count").rdd.map(r => r(0)).collect.toList 
 
+  // Calculate the sum of all the counts
+  // and the sum of their squares.
   var countsum = 0.0
   var squaresum = 0.0
   for( a <- listValues ){
@@ -61,12 +64,17 @@ def runHotcellAnalysis(spark: SparkSession, pointPath: String): DataFrame =
       squaresum = squaresum + (v * v)
   }
 
+  // Calculate mean and standard deviation of the count.
   val mean = countsum/numCells
-  val sqsum = math.sqrt((squaresum/numCells) - (mean))
+  val stddev = math.sqrt((squaresum/numCells) - (mean))
 
   Console.println("mean: ",mean)
-  Console.println("Sqsum: ",sqsum)
+  Console.println("Sqsum: ",stddev)
 
+  // Join the filtered table with itself and find the adjacent cubes
+  // If two cubes are adjacent, the weight between them is 1.
+  // Since the weight is 1, the sum of all the weights is just the count of adjacent cube (column name: weight_count).
+  // The sum of the product of weight and the corresponding adjacent cubes pickup count is sum of the pickup counts (column name: weight_sum).
   val adj = filtered.as("first_filter").crossJoin(filtered.as("second_filter"))
             .filter("ABS(first_filter.x-second_filter.x) <= 1 AND ABS(first_filter.y-second_filter.y) <= 1 AND ABS(first_filter.z-second_filter.z) <= 1")
             .select(col("first_filter.x"), col("first_filter.y"),col("first_filter.z"), col("second_filter.count"))
@@ -77,9 +85,12 @@ def runHotcellAnalysis(spark: SparkSession, pointPath: String): DataFrame =
 
   adj.show()
 
-  val resultDf = spark.sql("select x,y,z,((weight_sum - (" + (mean).toString + " * weight_count)) / ("+ (sqsum).toString +" * SQRT((("+(numCells).toString+" * weight_count)- (weight_count*weight_count))/("+(numCells-1).toString+")))) as gscore from weightmatrix").persist()
+  // Calculate the G score for each cube.
+  val resultDf = spark.sql("select x,y,z,((weight_sum - (" + (mean).toString + " * weight_count)) / ("+ (stddev).toString +" * SQRT((("+(numCells).toString+" * weight_count)- (weight_count*weight_count))/("+(numCells-1).toString+")))) as gscore from weightmatrix").persist()
   resultDf.show()
 
+  // Sort the dataset in descending order of gscore
+  // and get the first 50 rows and select only x,y and z columns.
   val result = resultDf.sort(desc("gscore"))
               .limit(50)
               .repartition(1)

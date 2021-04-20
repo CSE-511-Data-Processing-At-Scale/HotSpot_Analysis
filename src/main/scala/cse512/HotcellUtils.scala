@@ -9,7 +9,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object HotcellUtils {
   val coordinateStep = 0.01
-  var hotcellCube = Array.ofDim[Int](0, 0, 0)
 
   def CalculateCoordinate(inputString: String, coordinateOffset: Int): Int =
   {
@@ -50,7 +49,5 @@ object HotcellUtils {
     calendar.setTimeInMillis(timestamp.getTime)
     return calendar.get(Calendar.DAY_OF_MONTH)
   }
-
-  // YOU NEED TO CHANGE THIS PART
 
 }

@@ -27,11 +27,14 @@ object HotzoneAnalysis {
     // Join two datasets
     spark.udf.register("ST_Contains",(queryRectangle:String, pointString:String)=>(HotzoneUtils.ST_Contains(queryRectangle, pointString)))
     val joinDf = spark.sql("select rectangle._c0 as rectangle, point._c5 as point from rectangle,point where ST_Contains(rectangle._c0,point._c5)")
-    joinDf.createOrReplaceTempView("joinResult")
+    
+    // Count the number of points in each rectangle and count them
     val grouped = joinDf.groupBy("rectangle").count()
+
+    // Sort by rectangle in ascending order and reduce the number of partitions to 1
     val result = grouped.orderBy("rectangle").repartition(1)
-    result.createOrReplaceTempView("HotzoneResults")
     result.show()
+
     return result
   }
 
