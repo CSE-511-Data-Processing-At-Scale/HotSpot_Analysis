@@ -3,9 +3,13 @@ package cse512
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import org.apache.spark.sql.functions.udf
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object HotcellUtils {
   val coordinateStep = 0.01
+  var hotcellCube = Array.ofDim[Int](0, 0, 0)
 
   def CalculateCoordinate(inputString: String, coordinateOffset: Int): Int =
   {
@@ -48,4 +52,5 @@ object HotcellUtils {
   }
 
   // YOU NEED TO CHANGE THIS PART
+
 }
